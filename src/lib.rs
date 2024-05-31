@@ -68,7 +68,7 @@ pub fn get_env(key: &str) -> Option<String> {
 
 pub fn get_env_exit(key: &str) -> String {
     get_env(key).unwrap_or_else(|| {
-        error!("Env var {key} not set");
+        error!("Env var {key} not set.");
         process::exit(2)
     })
 }
