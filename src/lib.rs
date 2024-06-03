@@ -12,6 +12,7 @@ use tracing_subscriber::EnvFilter;
 
 pub fn setup_logs(pkg_name: &'static str, extra_default_directives: Vec<&'static str>) {
     let env = if get_env("RUST_LOG").is_none() {
+        let pkg_name = pkg_name.replace('-', "_");
         let extra_directives = extra_default_directives.join(",");
         EnvFilter::new(format!("{pkg_name}=debug,rs_utils=debug{}{extra_directives}", if extra_directives.is_empty() { "" } else { "," }))
     } else {
