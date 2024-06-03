@@ -8,6 +8,25 @@ use std::{
 };
 
 use anyhow::Result;
+use tracing_subscriber::EnvFilter;
+
+pub fn setup_logs(pkg_name: &'static str, extra_default_directives: Vec<&'static str>) {
+    let env = if get_env("RUST_LOG").is_none() {
+        let extra_directives = extra_default_directives.join(",");
+        EnvFilter::new(format!("{pkg_name}=debug,rs_utils=debug{}{extra_directives}", if extra_directives.is_empty() { "" } else { "," }))
+    } else {
+        EnvFilter::from_default_env()
+    };
+
+    let log_str = env.to_string();
+
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(env)
+        .with_target(false)
+        .init();
+
+    debug!("Initialized logger with directives: {log_str}");
+}
 
 #[cfg(windows)]
 pub async fn wait_for_signal() -> Result<()> {
