@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate tracing;
 
+use anyhow::Result;
 use std::{
     env,
     error,
+    fs::read_to_string,
     process,
 };
-
-use anyhow::Result;
 use tracing_subscriber::EnvFilter;
 
 pub fn setup_logs(pkg_name: &'static str, extra_default_directives: Vec<&'static str>) {
@@ -59,8 +59,8 @@ pub async fn wait_for_signal() -> Result<()> {
 }
 
 pub fn exit_on_error<V, E>(res: Result<V, E>, msg: &'static str) -> V
-    where
-        E: error::Error + Send + Sync + 'static,
+where
+    E: error::Error + Send + Sync + 'static,
 {
     exit_on_anyhow_error(res.map_err(|e| anyhow::Error::new(e)), msg)
 }
@@ -73,17 +73,11 @@ pub fn exit_on_anyhow_error<V>(res: Result<V, anyhow::Error>, msg: &'static str)
 }
 
 pub fn get_env(key: &str) -> Option<String> {
+    // Check if the env var is set
     env::var(key)
+        // This returns an error if the env var is not set, turn it into an option
         .ok()
-        .and_then(|v| {
-            if v.trim().is_empty() {
-                // Check if the set var is empty or not
-                error!("Env var {key} set but empty.");
-                None
-            } else {
-                Some(v)
-            }
-        })
+        .and_then(|value| value_from_env_var(key, value))
 }
 
 pub fn get_env_exit(key: &str) -> String {
@@ -91,4 +85,29 @@ pub fn get_env_exit(key: &str) -> String {
         error!("Env var {key} not set.");
         process::exit(2)
     })
+}
+
+fn value_from_env_var(key: &str, value: String) -> Option<String> {
+    // Trim the value to remove any leading/trailing whitespace
+    let value = value.trim();
+
+    if value.is_empty() {
+        // Check if the set var is empty or not
+        error!("Env var {key} set but empty.");
+        None
+    } else {
+        // Check if the value is a file path
+        match value.strip_prefix("file:") {
+            Some(file_path) => match read_to_string(file_path) {
+                // If we can read the file, return the content trimmed
+                Ok(file_content) => Some(file_content.trim().to_string()),
+                Err(e) => {
+                    error!("Failed to read file {file_path}: {e}");
+                    None
+                }
+            }
+            // Not a file, return the value as is
+            None => Some(value.to_string()),
+        }
+    }
 }
